@@ -175,7 +175,8 @@ Resources:
     Type: AWS::Redshift::ClusterSubnetGroup
     Properties:
       Description: Cluster subnet group
-      SubnetIds: !Ref PrivateSubnet
+      SubnetIds:
+        - !Ref PrivateSubnet
 
   RedshiftSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -194,6 +195,7 @@ Resources:
     Type: "AWS::SageMaker::NotebookInstance"
     Properties:
       InstanceType: !Ref SageMakerInstanceType
+      NotebookInstanceName: !Ref SageMakerInstanceName
       RoleArn: !GetAtt NotebookExecutionRole.Arn
     #   KmsKeyId: !Ref KMSKey
       DirectInternetAccess: "Enabled"
@@ -219,6 +221,20 @@ Resources:
                 - "sagemaker.amazonaws.com"
             Action: 
               - "sts:AssumeRole"
+      Path: "/"
+      Policies:
+      - PolicyName: "get-redshift-credentials"
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Resource: "*"
+            Action:
+            - "redshift:GetClusterCredentials"
+            - "redshift:CreateClusterUser"
+            - "redshift:JoinGroup"
+      ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess    
 
 
 Outputs:
