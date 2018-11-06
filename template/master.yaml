@@ -36,7 +36,7 @@ Parameters:
     Description: The user name that is associated with the master user account for
       the cluster that is being created
     Type: String
-    Default: defaultuser
+    Default: admin
     AllowedPattern: "([a-z])([a-z]|[0-9])*"
     
   MasterUserPassword:
@@ -91,8 +91,8 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.0.0.0/16
-      EnableDnsSupport: 'true'
-      EnableDnsHostnames: 'true'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
       Tags:
         - Key: Name
           Value: "vpc-redshift"
@@ -155,9 +155,10 @@ Resources:
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterUserPassword
       ClusterParameterGroupName: !Ref RedshiftClusterParameterGroup
-      VpcSecurityGroupIds: !Ref RedshiftSecurityGroup
+      VpcSecurityGroupIds: 
+      - !Ref RedshiftSecurityGroup
       ClusterSubnetGroupName: !Ref RedshiftClusterSubnetGroup
-      PubliclyAccessible: 'false'
+      PubliclyAccessible: false
       Port: !Ref PortNumber
     #   Encrypted: 'true'
     #   KmsKeyId: !Ref KMSKey
@@ -225,7 +226,7 @@ Resources:
       Policies:
       - PolicyName: "get-redshift-credentials"
         PolicyDocument:
-          Version: '2012-10-17'
+          Version: "2012-10-17"
           Statement:
           - Effect: Allow
             Resource: "*"
@@ -234,7 +235,7 @@ Resources:
             - "redshift:CreateClusterUser"
             - "redshift:JoinGroup"
       ManagedPolicyArns:
-      - arn:aws:iam::aws:policy/AmazonSageMakerFullAccess    
+      - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 
 
 Outputs:
