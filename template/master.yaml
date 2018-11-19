@@ -53,7 +53,7 @@ Parameters:
 
   SageMakerInstanceName:
     Description: Name for the SageMaker notebook
-    Default: mynotebook
+    Default: SageMakerRedshift-Notebook
     Type: String
 
   SageMakerInstanceType:
@@ -108,39 +108,34 @@ Resources:
         - Key: Name
           Value: "private-subnet"
 
-# KMS
-#   KMSKey:
-#     Type: AWS::KMS::Key
-#     Properties:
-#       Description: KMS key for Redshift and SageMaker
-#       Enabled: true
-#       KeyPolicy:
-#         Version: "2012-10-17"
-#         Id: "kms-key"
-#         Statement:
-#           - Sid: "Allow administration of the key"
-#             Effect: "Allow"
-#             Principal:
-#               AWS:
-#                 - !Join [ ":", ["arn:aws:iam:", !Ref "AWS::AccountId", "role/Admin"]]
-#             Action:
-#               - "kms:*"
-#             Resource: "*"
-#           - Sid: "Allow use of the key"
-#             Effect: "Allow"
-#             Principal:
-#               Service:
-#                 - "redshift.amazonaws.com"
-#                 - "sagemaker.amazonaws.com"
-#             Action:
-#               - "kms:Encrypt"
-#               - "kms:Decrypt"
-#               - "kms:ReEncrypt"
-#               - "kms:GenerateDataKey"
-#               - "kms:DescribeKey"
-#             Resource: "*"
-
 # Redshift
+  RedshiftBucketAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - redshift.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: "redshift-bucket-access"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Resource: 
+            - arn:aws:s3:::awssampledbuswest2/*
+            - arn:aws:s3:::awssampledbuswest2
+            Action:
+            - s3:Get*
+            - s3:List*
+
   RedshiftCluster:
     Type: AWS::Redshift::Cluster
     Properties:
@@ -161,9 +156,9 @@ Resources:
       ClusterSubnetGroupName: !Ref RedshiftClusterSubnetGroup
       PubliclyAccessible: false
       Port: !Ref PortNumber
-    #   Encrypted: 'true'
-    #   KmsKeyId: !Ref KMSKey
-
+      IamRoles:
+      - !GetAtt RedshiftBucketAccessRole.Arn
+        
   RedshiftClusterParameterGroup:
     Type: AWS::Redshift::ClusterParameterGroup
     Properties:
@@ -190,7 +185,6 @@ Resources:
         ToPort: !Ref PortNumber
         IpProtocol: tcp
       VpcId: !Ref VPC
-
 
 # SageMaker
   NotebookInstance:
@@ -235,6 +229,7 @@ Resources:
             - "redshift:GetClusterCredentials"
             - "redshift:CreateClusterUser"
             - "redshift:JoinGroup"
+            - "cloudformation:DescribeStacks"
       ManagedPolicyArns:
       - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 
@@ -256,6 +251,8 @@ Outputs:
     Description: Name of cluster subnet group
     Value: !Ref RedshiftClusterSubnetGroup
 
-  RedshiftClusterSecurityGroupName:
-    Description: Name of cluster security group
-    Value: !Ref RedshiftSecurityGroup
+  RedshiftBucketAccessRoleArn:
+    Description: Arn of IAM role attached to redhsift cluster
+    Value: !GetAtt RedshiftBucketAccessRole.Arn
+
+  
