@@ -129,7 +129,7 @@ Resources:
           Version: "2012-10-17"
           Statement:
           - Effect: Allow
-            Resource: 
+            Resource:
             - arn:aws:s3:::awssampledbuswest2/*
             - arn:aws:s3:::awssampledbuswest2
             Action:
@@ -158,7 +158,7 @@ Resources:
       Port: !Ref PortNumber
       IamRoles:
       - !GetAtt RedshiftBucketAccessRole.Arn
-        
+
   RedshiftClusterParameterGroup:
     Type: AWS::Redshift::ClusterParameterGroup
     Properties:
@@ -166,6 +166,8 @@ Resources:
       ParameterGroupFamily: redshift-1.0
       Parameters:
       - ParameterName: enable_user_activity_logging
+        ParameterValue: 'true'
+      - ParameterName: require_ssl
         ParameterValue: 'true'
 
   RedshiftClusterSubnetGroup:
@@ -254,5 +256,3 @@ Outputs:
   RedshiftBucketAccessRoleArn:
     Description: Arn of IAM role attached to redhsift cluster
     Value: !GetAtt RedshiftBucketAccessRole.Arn
-
-  
