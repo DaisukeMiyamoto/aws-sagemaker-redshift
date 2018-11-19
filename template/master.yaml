@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Default: dev
     AllowedPattern: "([a-z]|[0-9])+"
-    
+
   ClusterType:
     Description: The type of cluster
     Type: String
@@ -15,13 +15,13 @@ Parameters:
     AllowedValues:
     - single-node
     - multi-node
-    
+
   NumberOfNodes:
     Description: The number of compute nodes in the cluster. For multi-node clusters,
       the NumberOfNodes parameter must be greater than 1
     Type: Number
     Default: '1'
-    
+
   NodeType:
     Description: The type of node to be provisioned
     Type: String
@@ -31,20 +31,21 @@ Parameters:
     - ds2.8xlarge
     - dc2.large
     - dc2.8xlarge
-    
+
   MasterUsername:
     Description: The user name that is associated with the master user account for
       the cluster that is being created
     Type: String
     Default: admin
     AllowedPattern: "([a-z])([a-z]|[0-9])*"
-    
+
   MasterUserPassword:
     Description: The password that is associated with the master user account for
       the cluster that is being created.
     Type: String
+    AllowedPattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,64}$"
     NoEcho: 'true'
-    
+
   PortNumber:
     Description: The port number on which the cluster accepts incoming connections.
     Type: Number
@@ -83,7 +84,7 @@ Conditions:
     - Ref: ClusterType
     - multi-node
 
-    
+
 Resources:
 
 # VPC
@@ -150,7 +151,7 @@ Resources:
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterUserPassword
       ClusterParameterGroupName: !Ref RedshiftClusterParameterGroup
-      VpcSecurityGroupIds: 
+      VpcSecurityGroupIds:
       - !Ref RedshiftSecurityGroup
       ClusterSubnetGroupName: !Ref RedshiftClusterSubnetGroup
       PubliclyAccessible: false
@@ -166,7 +167,7 @@ Resources:
       Parameters:
       - ParameterName: enable_user_activity_logging
         ParameterValue: 'true'
-        
+
   RedshiftClusterSubnetGroup:
     Type: AWS::Redshift::ClusterSubnetGroup
     Properties:
@@ -197,24 +198,24 @@ Resources:
       SubnetId: !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref NotebookSecurityGroup
-        
+
   NotebookSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: SageMaker Notebook instance security group
       VpcId: !Ref VPC
 
-  NotebookExecutionRole: 
+  NotebookExecutionRole:
     Type: "AWS::IAM::Role"
-    Properties: 
-      AssumeRolePolicyDocument: 
+    Properties:
+      AssumeRolePolicyDocument:
         Version: "2012-10-17"
-        Statement: 
+        Statement:
           - Effect: "Allow"
-            Principal: 
-              Service: 
+            Principal:
+              Service:
                 - "sagemaker.amazonaws.com"
-            Action: 
+            Action:
               - "sts:AssumeRole"
       Path: "/"
       Policies:
@@ -237,7 +238,7 @@ Outputs:
   ClusterEndpoint:
     Description: Cluster endpoint
     Value: !Sub "${RedshiftCluster.Endpoint.Address}:${RedshiftCluster.Endpoint.Port}"
-    
+
   ClusterName:
     Description: Name of cluster
     Value: !Ref RedshiftCluster
