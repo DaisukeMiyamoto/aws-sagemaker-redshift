@@ -43,6 +43,7 @@ Parameters:
     Description: The password that is associated with the master user account for
       the cluster that is being created.
     Type: String
+    AllowedPattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d]{8,64}$"
     NoEcho: 'true'
     
   PortNumber:
