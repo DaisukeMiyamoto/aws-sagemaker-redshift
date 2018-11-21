@@ -7,7 +7,7 @@ Parameters:
     Type: String
     Default: dev
     AllowedPattern: "([a-z]|[0-9])+"
-    
+
   ClusterType:
     Description: The type of cluster
     Type: String
@@ -15,13 +15,13 @@ Parameters:
     AllowedValues:
     - single-node
     - multi-node
-    
+
   NumberOfNodes:
     Description: The number of compute nodes in the cluster. For multi-node clusters,
       the NumberOfNodes parameter must be greater than 1
     Type: Number
     Default: '1'
-    
+
   NodeType:
     Description: The type of node to be provisioned
     Type: String
@@ -31,20 +31,21 @@ Parameters:
     - ds2.8xlarge
     - dc2.large
     - dc2.8xlarge
-    
+
   MasterUsername:
     Description: The user name that is associated with the master user account for
       the cluster that is being created
     Type: String
     Default: admin
     AllowedPattern: "([a-z])([a-z]|[0-9])*"
-    
+
   MasterUserPassword:
     Description: The password that is associated with the master user account for
       the cluster that is being created.
     Type: String
+    AllowedPattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)[a-zA-Z\\d]{8,64}$"
     NoEcho: 'true'
-    
+
   PortNumber:
     Description: The port number on which the cluster accepts incoming connections.
     Type: Number
@@ -52,7 +53,7 @@ Parameters:
 
   SageMakerInstanceName:
     Description: Name for the SageMaker notebook
-    Default: mynotebook
+    Default: SageMakerRedshift-Notebook
     Type: String
 
   SageMakerInstanceType:
@@ -83,7 +84,7 @@ Conditions:
     - Ref: ClusterType
     - multi-node
 
-    
+
 Resources:
 
 # VPC
@@ -107,39 +108,34 @@ Resources:
         - Key: Name
           Value: "private-subnet"
 
-# KMS
-#   KMSKey:
-#     Type: AWS::KMS::Key
-#     Properties: 
-#       Description: KMS key for Redshift and SageMaker
-#       Enabled: true
-#       KeyPolicy: 
-#         Version: "2012-10-17"
-#         Id: "kms-key"
-#         Statement:
-#           - Sid: "Allow administration of the key"
-#             Effect: "Allow"
-#             Principal:
-#               AWS:
-#                 - !Join [ ":", ["arn:aws:iam:", !Ref "AWS::AccountId", "role/Admin"]]
-#             Action:
-#               - "kms:*"
-#             Resource: "*"
-#           - Sid: "Allow use of the key"
-#             Effect: "Allow"
-#             Principal:
-#               Service:
-#                 - "redshift.amazonaws.com"
-#                 - "sagemaker.amazonaws.com"
-#             Action:
-#               - "kms:Encrypt"
-#               - "kms:Decrypt"
-#               - "kms:ReEncrypt"
-#               - "kms:GenerateDataKey"
-#               - "kms:DescribeKey"
-#             Resource: "*"
-
 # Redshift
+  RedshiftBucketAccessRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          -
+            Effect: Allow
+            Principal:
+              Service:
+                - redshift.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      Path: "/"
+      Policies:
+      - PolicyName: "redshift-bucket-access"
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+          - Effect: Allow
+            Resource:
+            - arn:aws:s3:::awssampledbuswest2/*
+            - arn:aws:s3:::awssampledbuswest2
+            Action:
+            - s3:Get*
+            - s3:List*
+
   RedshiftCluster:
     Type: AWS::Redshift::Cluster
     Properties:
@@ -155,14 +151,14 @@ Resources:
       MasterUsername: !Ref MasterUsername
       MasterUserPassword: !Ref MasterUserPassword
       ClusterParameterGroupName: !Ref RedshiftClusterParameterGroup
-      VpcSecurityGroupIds: 
+      VpcSecurityGroupIds:
       - !Ref RedshiftSecurityGroup
       ClusterSubnetGroupName: !Ref RedshiftClusterSubnetGroup
       PubliclyAccessible: false
       Port: !Ref PortNumber
-    #   Encrypted: 'true'
-    #   KmsKeyId: !Ref KMSKey
-        
+      IamRoles:
+      - !GetAtt RedshiftBucketAccessRole.Arn
+
   RedshiftClusterParameterGroup:
     Type: AWS::Redshift::ClusterParameterGroup
     Properties:
@@ -171,7 +167,9 @@ Resources:
       Parameters:
       - ParameterName: enable_user_activity_logging
         ParameterValue: 'true'
-        
+      - ParameterName: require_ssl
+        ParameterValue: 'true'
+
   RedshiftClusterSubnetGroup:
     Type: AWS::Redshift::ClusterSubnetGroup
     Properties:
@@ -190,7 +188,6 @@ Resources:
         IpProtocol: tcp
       VpcId: !Ref VPC
 
-
 # SageMaker
   NotebookInstance:
     Type: "AWS::SageMaker::NotebookInstance"
@@ -203,24 +200,24 @@ Resources:
       SubnetId: !Ref PrivateSubnet
       SecurityGroupIds:
         - !Ref NotebookSecurityGroup
-        
+
   NotebookSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: SageMaker Notebook instance security group
       VpcId: !Ref VPC
 
-  NotebookExecutionRole: 
+  NotebookExecutionRole:
     Type: "AWS::IAM::Role"
-    Properties: 
-      AssumeRolePolicyDocument: 
+    Properties:
+      AssumeRolePolicyDocument:
         Version: "2012-10-17"
-        Statement: 
+        Statement:
           - Effect: "Allow"
-            Principal: 
-              Service: 
+            Principal:
+              Service:
                 - "sagemaker.amazonaws.com"
-            Action: 
+            Action:
               - "sts:AssumeRole"
       Path: "/"
       Policies:
@@ -234,6 +231,7 @@ Resources:
             - "redshift:GetClusterCredentials"
             - "redshift:CreateClusterUser"
             - "redshift:JoinGroup"
+            - "cloudformation:DescribeStacks"
       ManagedPolicyArns:
       - "arn:aws:iam::aws:policy/AmazonSageMakerFullAccess"
 
@@ -242,7 +240,7 @@ Outputs:
   ClusterEndpoint:
     Description: Cluster endpoint
     Value: !Sub "${RedshiftCluster.Endpoint.Address}:${RedshiftCluster.Endpoint.Port}"
-    
+
   ClusterName:
     Description: Name of cluster
     Value: !Ref RedshiftCluster
@@ -255,6 +253,6 @@ Outputs:
     Description: Name of cluster subnet group
     Value: !Ref RedshiftClusterSubnetGroup
 
-  RedshiftClusterSecurityGroupName:
-    Description: Name of cluster security group
-    Value: !Ref RedshiftSecurityGroup
+  RedshiftBucketAccessRoleArn:
+    Description: Arn of IAM role attached to redhsift cluster
+    Value: !GetAtt RedshiftBucketAccessRole.Arn
